@@ -44,7 +44,7 @@
     .quickbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
     .qbtn{padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:#0b1326;}
     .qbtn:hover{filter:brightness(1.08);}
-    .qbtn.small{padding:7px 10px;font-size:12px;color:var(--muted);}
+    .qbtn.small{padding:9px 10px;font-size:13px;color:var(--text);}
 
     .summaryBox{
       background:#0b1326;border:1px solid var(--line);border-radius:12px;
@@ -66,17 +66,20 @@
     .invalidField{border-color:var(--danger)!important;}
     .inlineReason{margin-top:6px;color:var(--danger);font-size:12px;line-height:1.5;}
 
+    .sublist{margin-top:6px;padding-left:16px;color:var(--muted);font-size:12px;line-height:1.7;}
+    .sublist b{color:var(--text);}
+
     /* ---------- Mobile-first enhancements ---------- */
     @media (max-width: 860px){
       .wrap{padding:0 10px 40px;}
       .toolbar{gap:8px;}
       .toolbar button{flex:1 1 160px;}
       .pill{width:100%;text-align:center;}
-      .three{grid-template-columns:1fr 1fr 1fr;}
       .quickbar .qbtn{flex:1 1 calc(50% - 6px);} /* 2 per row */
       /* Bigger touch targets + avoid iOS zoom */
       input, select, button { font-size:16px; }
       button { padding:12px 12px; }
+      .qbtn.small{font-size:15px;}
     }
 
     /* Turn table into cards on small screens */
@@ -96,7 +99,6 @@
       }
       tbody tr td:last-child{ border-bottom:none; }
 
-      /* Label each field */
       tbody tr td[data-label]::before{
         content: attr(data-label);
         display:block;
@@ -105,7 +107,6 @@
         margin-bottom:8px;
       }
 
-      /* Improve result readability on mobile */
       .kv{grid-template-columns:1fr;}
       .kv .k{margin-top:8px;}
       .row-actions{justify-content:flex-start;}
@@ -118,7 +119,7 @@
     <h1>處方加給計算機（自訂上班人次）</h1>
     <div class="sub">
       每一列代表一個診次（早/午/晚可任意新增）。你可指定：<b>醫師數（1=單診、2=雙診）</b>、<b>藥師/助理/工讀上班人次</b>、處方張數。<br/>
-      若配置不符合補助原則，或符合限制（<b>午/晚 + 雙診 + 總人數=2</b>），該診顯示 <b class="dangerText">不符合規則</b> 且不計算。
+      若配置不符合補助原則，或符合限制（<b>晚診 + 雙診 + 總人數=2</b>），該診顯示 <b class="dangerText">不符合規則</b> 且不計算。
     </div>
 
     <div class="card">
@@ -153,7 +154,8 @@
           &nbsp;&nbsp;B) <span class="mono">2 藥師 + 0 助理 + 0 工讀</span><br/>
           &nbsp;&nbsp;C) <span class="mono">1 藥師 + 1 助理 + 1 工讀</span><br/><br/>
           <b>你的限制</b><br/>
-          - 若 <b>午診</b> 或 <b>晚診</b> 且為 <b>雙診（醫師=2）</b>，同時上班總人數 <span class="mono">(藥師+助理+工讀)=2</span> → <b class="dangerText">不符合規則</b>（不計算）。
+          - 只有 <b>晚診</b> 且為 <b>雙診（醫師=2）</b>，同時上班總人數 <span class="mono">(藥師+助理+工讀)=2</span> → <b class="dangerText">不符合規則</b>（不計算）。<br/>
+          - <b>午診</b> 雙診 2 人則允許（仍需符合 A 或 B 其一）。
         </div>
       </div>
     </div>
@@ -185,11 +187,11 @@
 
   // ---------- Rules ----------
   function getRuleByStaff(doctors, p, a, t){
-    const base = { valid:false, threshold:0, stipendA:0, stipendPEach:0, label:"" };
+    const base = { valid:false, threshold:0, stipendA:0, stipendPEach:0, key:"", label:"" };
 
     if (doctors === 1){
       if (p === 1 && a === 1 && t === 0){
-        return { valid:true, threshold:40, stipendA:0, stipendPEach:0,
+        return { valid:true, key:"SINGLE_1P1A", threshold:40, stipendA:0, stipendPEach:0,
           label:"單診：門檻40；第41張起 助理5/張、藥師10/張；無固定津貼" };
       }
       return { ...base, label:"單診必須是 1 藥師 + 1 助理（工讀=0）。" };
@@ -197,18 +199,18 @@
 
     if (doctors === 2){
       if (p === 1 && a === 1 && t === 0){
-        return { valid:true, threshold:50, stipendA:250, stipendPEach:500,
-          label:"雙診A：助理固定250、藥師固定500；門檻50；第51張起 助理5/張、藥師10/張" };
+        return { valid:true, key:"DOUBLE_A_1P1A", threshold:50, stipendA:250, stipendPEach:500,
+          label:"雙診1藥1助：助理固定250、藥師固定500；門檻50；第51張起 助理5/張、藥師10/張" };
       }
       if (p === 2 && a === 0 && t === 0){
-        return { valid:true, threshold:50, stipendA:0, stipendPEach:500,
-          label:"雙診B：2藥師；每位藥師固定500；門檻50；第51張起 藥師10/張（以人次倍計）" };
+        return { valid:true, key:"DOUBLE_B_2P", threshold:50, stipendA:0, stipendPEach:500,
+          label:"雙診2藥：每位藥師固定500；門檻50；第51張起 藥師10/張（以人次倍計）" };
       }
       if (p === 1 && a === 1 && t === 1){
-        return { valid:true, threshold:60, stipendA:300, stipendPEach:500,
-          label:"雙診C：助理固定300、藥師固定500；門檻60；第61張起 助理5/張、藥師10/張（工讀=0）" };
+        return { valid:true, key:"DOUBLE_C_1P1A1T", threshold:60, stipendA:300, stipendPEach:500,
+          label:"雙診1藥1助1工：助理固定300、藥師固定500；門檻60；第61張起 助理5/張、藥師10/張（工讀=0）" };
       }
-      return { ...base, label:"雙診配置不符合三種補助原則（1P1A / 2P / 1P1A1T）。" };
+      return { ...base, label:"雙診配置不符合三種補助原則（雙診1藥1助 / 雙診2藥 / 雙診1藥1助1工）。" };
     }
 
     return { ...base, label:"醫師數請選 1 或 2。" };
@@ -222,17 +224,28 @@
     const t = Number(tr.querySelector(".tCount").value || 0);
     const rx = Number(tr.querySelector(".rx").value || 0);
 
-    // 你的限制：午/晚 + 雙診 + 總人數=2 -> 不符合
+    // 修正後限制：只有「晚診 + 雙診 + 總人數=2」不符合
     const headcount = p + a + t;
-    if ((shift === "午" || shift === "晚") && doctors === 2 && headcount === 2){
-      return { valid:false, reason:"午診/晚診為雙診時，上班人數只有 2 人，依規則視為不符合。",
-        threshold:0, over:0, pSession:0, pRx:0, aSession:0, aRx:0 };
+    if (shift === "晚" && doctors === 2 && headcount === 2){
+      return {
+        valid:false,
+        reason:"晚診為雙診時，上班人數只有 2 人，依規則視為不符合。",
+        ruleKey:"",
+        threshold:0, over:0,
+        p, a, t,
+        pSession:0, pRx:0, aSession:0, aRx:0
+      };
     }
 
     const rule = getRuleByStaff(doctors, p, a, t);
     if (!rule.valid){
-      return { valid:false, reason:rule.label,
-        threshold:0, over:0, pSession:0, pRx:0, aSession:0, aRx:0 };
+      return {
+        valid:false, reason:rule.label,
+        ruleKey: rule.key || "",
+        threshold:0, over:0,
+        p, a, t,
+        pSession:0, pRx:0, aSession:0, aRx:0
+      };
     }
 
     const over = Math.max(0, rx - rule.threshold);
@@ -244,7 +257,16 @@
     const pSession = rule.stipendPEach * p;
     const pRx = over * 10 * p;
 
-    return { valid:true, ruleLabel:rule.label, threshold:rule.threshold, over, pSession, pRx, aSession, aRx };
+    return {
+      valid:true,
+      ruleLabel:rule.label,
+      ruleKey: rule.key,
+      threshold:rule.threshold,
+      over,
+      p, a, t,
+      pSession, pRx,
+      aSession, aRx
+    };
   }
 
   // ---------- UI ----------
@@ -297,15 +319,52 @@
     }
 
     const pillClass = (c.over > 0) ? "pill warn" : "pill ok";
-    cell.innerHTML = `
-      <div class="summaryBox">
-        <div class="${pillClass}">門檻：${c.threshold} 張｜超額：${c.over} 張</div>
+
+    // 雙診2藥：顯示每位藥師明細
+    const isTwoPharmacists = (c.ruleKey === "DOUBLE_B_2P" && c.p === 2 && c.a === 0 && c.t === 0);
+    let pharmacistHtml = "";
+
+    if (isTwoPharmacists){
+      const eachSession = 500;
+      const eachRx = c.over * 10;
+      pharmacistHtml = `
+        <div class="kv">
+          <div class="k">藥師1</div>
+          <div class="v">每節津貼 <b>${moneyPlain(eachSession)}</b> 元；處方津貼 <b>${moneyPlain(eachRx)}</b> 元</div>
+
+          <div class="k">藥師2</div>
+          <div class="v">每節津貼 <b>${moneyPlain(eachSession)}</b> 元；處方津貼 <b>${moneyPlain(eachRx)}</b> 元</div>
+        </div>
+      `;
+    } else {
+      pharmacistHtml = `
         <div class="kv">
           <div class="k">藥師</div>
           <div class="v">每節津貼 <b>${moneyPlain(c.pSession)}</b> 元；處方津貼 <b>${moneyPlain(c.pRx)}</b> 元</div>
+        </div>
+      `;
+    }
+
+    // 助理：只有存在時才顯示
+    let assistantHtml = "";
+    if (c.a > 0){
+      assistantHtml = `
+        <div class="kv">
           <div class="k">助理</div>
           <div class="v">每節津貼 <b>${moneyPlain(c.aSession)}</b> 元；處方津貼 <b>${moneyPlain(c.aRx)}</b> 元</div>
         </div>
+      `;
+    } else {
+      assistantHtml = `<div class="mini" style="margin-top:8px;">助理：無</div>`;
+    }
+
+    cell.innerHTML = `
+      <div class="summaryBox">
+        <div class="${pillClass}">門檻：${c.threshold} 張｜超額：${c.over} 張</div>
+
+        ${pharmacistHtml}
+        ${assistantHtml}
+
         <div class="mini" style="margin-top:10px;">規則：${c.ruleLabel}</div>
       </div>
     `;
@@ -366,10 +425,10 @@
         </div>
 
         <div class="quickbar">
-          <button class="qbtn small qSingle" type="button">套用：單診(1P1A)</button>
-          <button class="qbtn small qDA" type="button">套用：雙診A(1P1A)</button>
-          <button class="qbtn small qDB" type="button">套用：雙診B(2P)</button>
-          <button class="qbtn small qDC" type="button">套用：雙診C(1P1A1T)</button>
+          <button class="qbtn small qSingle" type="button">單診1藥1助</button>
+          <button class="qbtn small qDA" type="button">雙診1藥1助</button>
+          <button class="qbtn small qDB" type="button">雙診2藥</button>
+          <button class="qbtn small qDC" type="button">雙診1藥1助1工</button>
         </div>
 
         <div class="inlineReason"></div>
