@@ -11,7 +11,7 @@
     }
     *{box-sizing:border-box;font-family:system-ui,-apple-system,"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;}
     body{margin:0;background:linear-gradient(180deg,#070b14,#0b1220);color:var(--text);}
-    .wrap{max-width:1250px;margin:24px auto;padding:0 16px 40px;}
+    .wrap{max-width:1250px;margin:18px auto;padding:0 12px 40px;}
     h1{font-size:20px;margin:0 0 10px;}
     .sub{color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:14px;}
     .card{background:rgba(17,26,46,.92);border:1px solid var(--line);border-radius:14px;padding:14px;}
@@ -31,7 +31,7 @@
     th,td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;font-size:13px;vertical-align:top;}
     th{color:var(--muted);font-weight:650;}
     select,input{
-      width:100%;padding:9px 10px;border-radius:10px;border:1px solid var(--line);
+      width:100%;padding:10px 10px;border-radius:10px;border:1px solid var(--line);
       background:#0b1326;color:var(--text);outline:none;
     }
     input:focus,select:focus{border-color:#3a4e7a;}
@@ -42,9 +42,9 @@
 
     .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
     .quickbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
-    .qbtn{padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:#0b1326;}
+    .qbtn{padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:#0b1326;}
     .qbtn:hover{filter:brightness(1.08);}
-    .qbtn.small{padding:6px 9px;font-size:12px;color:var(--muted);}
+    .qbtn.small{padding:7px 10px;font-size:12px;color:var(--muted);}
 
     .summaryBox{
       background:#0b1326;border:1px solid var(--line);border-radius:12px;
@@ -55,7 +55,6 @@
       box-shadow:0 0 0 1px rgba(255,180,180,.25) inset;
     }
     .dangerText{color:var(--danger);}
-    .warnText{color:var(--warn);}
 
     .kv{display:grid;grid-template-columns:120px 1fr;gap:6px;margin-top:8px;}
     .kv .k{color:var(--muted);}
@@ -66,6 +65,52 @@
 
     .invalidField{border-color:var(--danger)!important;}
     .inlineReason{margin-top:6px;color:var(--danger);font-size:12px;line-height:1.5;}
+
+    /* ---------- Mobile-first enhancements ---------- */
+    @media (max-width: 860px){
+      .wrap{padding:0 10px 40px;}
+      .toolbar{gap:8px;}
+      .toolbar button{flex:1 1 160px;}
+      .pill{width:100%;text-align:center;}
+      .three{grid-template-columns:1fr 1fr 1fr;}
+      .quickbar .qbtn{flex:1 1 calc(50% - 6px);} /* 2 per row */
+      /* Bigger touch targets + avoid iOS zoom */
+      input, select, button { font-size:16px; }
+      button { padding:12px 12px; }
+    }
+
+    /* Turn table into cards on small screens */
+    @media (max-width: 720px){
+      table, thead, tbody, th, td, tr { display:block; }
+      thead { display:none; }
+      tbody tr{
+        border:1px solid var(--line);
+        background:rgba(17,26,46,.6);
+        border-radius:14px;
+        margin:12px 0;
+        overflow:hidden;
+      }
+      tbody tr td{
+        border-bottom:1px solid var(--line);
+        padding:12px 12px;
+      }
+      tbody tr td:last-child{ border-bottom:none; }
+
+      /* Label each field */
+      tbody tr td[data-label]::before{
+        content: attr(data-label);
+        display:block;
+        color: var(--muted);
+        font-size:12px;
+        margin-bottom:8px;
+      }
+
+      /* Improve result readability on mobile */
+      .kv{grid-template-columns:1fr;}
+      .kv .k{margin-top:8px;}
+      .row-actions{justify-content:flex-start;}
+      .row-actions button{width:100%;}
+    }
   </style>
 </head>
 <body>
@@ -78,10 +123,10 @@
 
     <div class="card">
       <div class="toolbar">
-        <button class="primary" id="addRowBtn">新增一診</button>
-        <button id="add3Btn">一鍵新增：早/午/晚</button>
-        <button id="clearBtn">清空</button>
-        <button id="copyLinkBtn">複製分享連結（帶參數）</button>
+        <button class="primary" id="addRowBtn" type="button">新增一診</button>
+        <button id="add3Btn" type="button">一鍵新增：早/午/晚</button>
+        <button id="clearBtn" type="button">清空</button>
+        <button id="copyLinkBtn" type="button">複製分享連結（帶參數）</button>
         <span class="pill">超額單價：助理 5 / 張、藥師 10 / 張</span>
       </div>
 
@@ -120,15 +165,22 @@
     const v = Math.round((Number(n) || 0));
     return v.toLocaleString("zh-Hant-TW");
   }
-
   function encodeData(obj){
-    // Base64(UTF-8 JSON)
     const json = JSON.stringify(obj);
     return btoa(unescape(encodeURIComponent(json)));
   }
   function decodeData(b64){
     const json = decodeURIComponent(escape(atob(b64)));
     return JSON.parse(json);
+  }
+  async function copyText(text){
+    try{
+      await navigator.clipboard.writeText(text);
+      return true;
+    }catch(e){
+      window.prompt("已產生分享連結，請複製：", text);
+      return false;
+    }
   }
 
   // ---------- Rules ----------
@@ -137,44 +189,24 @@
 
     if (doctors === 1){
       if (p === 1 && a === 1 && t === 0){
-        return {
-          valid:true,
-          threshold:40,
-          stipendA:0,
-          stipendPEach:0,
-          label:"單診：門檻40；第41張起 助理5/張、藥師10/張；無固定津貼"
-        };
+        return { valid:true, threshold:40, stipendA:0, stipendPEach:0,
+          label:"單診：門檻40；第41張起 助理5/張、藥師10/張；無固定津貼" };
       }
       return { ...base, label:"單診必須是 1 藥師 + 1 助理（工讀=0）。" };
     }
 
     if (doctors === 2){
       if (p === 1 && a === 1 && t === 0){
-        return {
-          valid:true,
-          threshold:50,
-          stipendA:250,
-          stipendPEach:500,
-          label:"雙診A：助理固定250、藥師固定500；門檻50；第51張起 助理5/張、藥師10/張"
-        };
+        return { valid:true, threshold:50, stipendA:250, stipendPEach:500,
+          label:"雙診A：助理固定250、藥師固定500；門檻50；第51張起 助理5/張、藥師10/張" };
       }
       if (p === 2 && a === 0 && t === 0){
-        return {
-          valid:true,
-          threshold:50,
-          stipendA:0,
-          stipendPEach:500,
-          label:"雙診B：2藥師；每位藥師固定500；門檻50；第51張起 藥師10/張（以人次倍計）"
-        };
+        return { valid:true, threshold:50, stipendA:0, stipendPEach:500,
+          label:"雙診B：2藥師；每位藥師固定500；門檻50；第51張起 藥師10/張（以人次倍計）" };
       }
       if (p === 1 && a === 1 && t === 1){
-        return {
-          valid:true,
-          threshold:60,
-          stipendA:300,
-          stipendPEach:500,
-          label:"雙診C：助理固定300、藥師固定500；門檻60；第61張起 助理5/張、藥師10/張（工讀=0）"
-        };
+        return { valid:true, threshold:60, stipendA:300, stipendPEach:500,
+          label:"雙診C：助理固定300、藥師固定500；門檻60；第61張起 助理5/張、藥師10/張（工讀=0）" };
       }
       return { ...base, label:"雙診配置不符合三種補助原則（1P1A / 2P / 1P1A1T）。" };
     }
@@ -193,22 +225,14 @@
     // 你的限制：午/晚 + 雙診 + 總人數=2 -> 不符合
     const headcount = p + a + t;
     if ((shift === "午" || shift === "晚") && doctors === 2 && headcount === 2){
-      return {
-        valid:false,
-        reason:"午診/晚診為雙診時，上班人數只有 2 人，依規則視為不符合。",
-        threshold:0, over:0,
-        pSession:0, pRx:0, aSession:0, aRx:0
-      };
+      return { valid:false, reason:"午診/晚診為雙診時，上班人數只有 2 人，依規則視為不符合。",
+        threshold:0, over:0, pSession:0, pRx:0, aSession:0, aRx:0 };
     }
 
     const rule = getRuleByStaff(doctors, p, a, t);
     if (!rule.valid){
-      return {
-        valid:false,
-        reason:rule.label,
-        threshold:0, over:0,
-        pSession:0, pRx:0, aSession:0, aRx:0
-      };
+      return { valid:false, reason:rule.label,
+        threshold:0, over:0, pSession:0, pRx:0, aSession:0, aRx:0 };
     }
 
     const over = Math.max(0, rx - rule.threshold);
@@ -220,14 +244,7 @@
     const pSession = rule.stipendPEach * p;
     const pRx = over * 10 * p;
 
-    return {
-      valid:true,
-      ruleLabel:rule.label,
-      threshold:rule.threshold,
-      over,
-      pSession, pRx,
-      aSession, aRx
-    };
+    return { valid:true, ruleLabel:rule.label, threshold:rule.threshold, over, pSession, pRx, aSession, aRx };
   }
 
   // ---------- UI ----------
@@ -245,7 +262,7 @@
   }
 
   function clearInvalidStyles(tr){
-    ["doctors","pCount","aCount","tCount","rx"].forEach(cls=>{
+    ["doctors","pCount","aCount","tCount"].forEach(cls=>{
       const el = tr.querySelector("." + cls);
       if (el) el.classList.remove("invalidField");
     });
@@ -254,7 +271,6 @@
   }
 
   function applyInvalidStyles(tr, reasonText){
-    // 紅框：人次與醫師數（rx 保留正常，因為主要是配置不合）
     ["doctors","pCount","aCount","tCount"].forEach(cls=>{
       const el = tr.querySelector("." + cls);
       if (el) el.classList.add("invalidField");
@@ -284,18 +300,13 @@
     cell.innerHTML = `
       <div class="summaryBox">
         <div class="${pillClass}">門檻：${c.threshold} 張｜超額：${c.over} 張</div>
-
         <div class="kv">
           <div class="k">藥師</div>
           <div class="v">每節津貼 <b>${moneyPlain(c.pSession)}</b> 元；處方津貼 <b>${moneyPlain(c.pRx)}</b> 元</div>
-
           <div class="k">助理</div>
           <div class="v">每節津貼 <b>${moneyPlain(c.aSession)}</b> 元；處方津貼 <b>${moneyPlain(c.aRx)}</b> 元</div>
         </div>
-
-        <div class="mini" style="margin-top:10px;">
-          規則：${c.ruleLabel}
-        </div>
+        <div class="mini" style="margin-top:10px;">規則：${c.ruleLabel}</div>
       </div>
     `;
   }
@@ -320,22 +331,10 @@
     return url.toString();
   }
 
-  async function copyText(text){
-    // Clipboard API first, fallback prompt
-    try{
-      await navigator.clipboard.writeText(text);
-      return true;
-    }catch(e){
-      // Fallback: prompt user to copy
-      window.prompt("已產生分享連結，請複製：", text);
-      return false;
-    }
-  }
-
   function makeRow(defaultShift="早", preset=null){
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>
+      <td data-label="診次">
         <select class="shift">
           <option ${defaultShift==="早"?"selected":""}>早</option>
           <option ${defaultShift==="午"?"selected":""}>午</option>
@@ -343,14 +342,14 @@
         </select>
       </td>
 
-      <td>
+      <td data-label="醫師數">
         <select class="doctors">
           <option value="1">1（單診）</option>
           <option value="2">2（雙診）</option>
         </select>
       </td>
 
-      <td>
+      <td data-label="上班人次（含快速套用）">
         <div class="three">
           <div>
             <div class="mini" style="margin:0 0 4px;">藥師</div>
@@ -376,13 +375,13 @@
         <div class="inlineReason"></div>
       </td>
 
-      <td>
+      <td data-label="處方張數">
         <input class="rx" type="number" min="0" step="1" placeholder="輸入張數" />
       </td>
 
-      <td class="result"></td>
+      <td data-label="結果" class="result"></td>
 
-      <td>
+      <td data-label="操作">
         <div class="row-actions">
           <button class="delBtn" title="刪除" type="button">刪除</button>
         </div>
@@ -396,25 +395,13 @@
     const tInput = tr.querySelector(".tCount");
     const rxInput = tr.querySelector(".rx");
 
-    // Quick apply buttons
-    tr.querySelector(".qSingle").addEventListener("click", ()=>{
-      setStaff(tr, 1, 1, 1, 0);
-      renderRow(tr);
-    });
-    tr.querySelector(".qDA").addEventListener("click", ()=>{
-      setStaff(tr, 2, 1, 1, 0);
-      renderRow(tr);
-    });
-    tr.querySelector(".qDB").addEventListener("click", ()=>{
-      setStaff(tr, 2, 2, 0, 0);
-      renderRow(tr);
-    });
-    tr.querySelector(".qDC").addEventListener("click", ()=>{
-      setStaff(tr, 2, 1, 1, 1);
-      renderRow(tr);
-    });
+    // Quick apply
+    tr.querySelector(".qSingle").addEventListener("click", ()=>{ setStaff(tr, 1, 1, 1, 0); renderRow(tr); });
+    tr.querySelector(".qDA").addEventListener("click", ()=>{ setStaff(tr, 2, 1, 1, 0); renderRow(tr); });
+    tr.querySelector(".qDB").addEventListener("click", ()=>{ setStaff(tr, 2, 2, 0, 0); renderRow(tr); });
+    tr.querySelector(".qDC").addEventListener("click", ()=>{ setStaff(tr, 2, 1, 1, 1); renderRow(tr); });
 
-    // Apply preset if provided
+    // Preset load
     if (preset){
       shiftSel.value = preset.shift ?? defaultShift;
       doctorsSel.value = String(preset.doctors ?? 1);
@@ -432,36 +419,26 @@
     tInput.addEventListener("input", ()=>renderRow(tr));
     rxInput.addEventListener("input", ()=>renderRow(tr));
 
-    tr.querySelector(".delBtn").addEventListener("click", ()=>{
-      tr.remove();
-    });
+    tr.querySelector(".delBtn").addEventListener("click", ()=>{ tr.remove(); });
 
-    // Initial render
     renderRow(tr);
     return tr;
   }
 
-  // Toolbar buttons
-  addRowBtn.addEventListener("click", ()=>{
-    tbody.appendChild(makeRow("早"));
-  });
-
+  addRowBtn.addEventListener("click", ()=>{ tbody.appendChild(makeRow("早")); });
   add3Btn.addEventListener("click", ()=>{
     tbody.appendChild(makeRow("早"));
     tbody.appendChild(makeRow("午"));
     tbody.appendChild(makeRow("晚"));
   });
-
-  clearBtn.addEventListener("click", ()=>{
-    tbody.innerHTML = "";
-  });
+  clearBtn.addEventListener("click", ()=>{ tbody.innerHTML = ""; });
 
   copyLinkBtn.addEventListener("click", async ()=>{
     const url = buildShareUrl();
     await copyText(url);
   });
 
-  // ---------- Load from URL ----------
+  // Init from URL
   (function init(){
     const params = new URLSearchParams(window.location.search);
     const dataParam = params.get("data");
@@ -471,8 +448,7 @@
         const decoded = decodeData(dataParam);
         if (decoded && decoded.v === 1 && Array.isArray(decoded.rows)){
           tbody.innerHTML = "";
-          decoded.rows.forEach((r, idx)=>{
-            // fallback shift if invalid
+          decoded.rows.forEach(r=>{
             const shift = (r.shift === "早" || r.shift === "午" || r.shift === "晚") ? r.shift : "早";
             tbody.appendChild(makeRow(shift, {
               shift,
@@ -483,18 +459,11 @@
               rx: Number(r.rx || 0),
             }));
           });
-          // if no rows in data, still create one row
-          if (tbody.querySelectorAll("tr").length === 0){
-            tbody.appendChild(makeRow("早"));
-          }
+          if (tbody.querySelectorAll("tr").length === 0) tbody.appendChild(makeRow("早"));
           return;
         }
-      }catch(e){
-        // ignore and fall back
-      }
+      }catch(e){}
     }
-
-    // Default initial row
     tbody.appendChild(makeRow("早"));
   })();
 </script>
