@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>處方加給計算機（可自訂上班人次）</title>
+  <title>處方加給計算機（自訂上班人次）</title>
   <style>
     :root{
       --bg:#0b1220; --card:#111a2e; --line:#23304e; --text:#eaf1ff; --muted:#8aa0c7;
@@ -14,8 +14,6 @@
     .wrap{max-width:1200px;margin:24px auto;padding:0 16px 40px;}
     h1{font-size:20px;margin:0 0 10px;}
     .sub{color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:14px;}
-    .grid{display:grid;grid-template-columns:1.25fr .75fr;gap:14px;}
-    @media (max-width:980px){.grid{grid-template-columns:1fr;}}
     .card{background:rgba(17,26,46,.92);border:1px solid var(--line);border-radius:14px;padding:14px;}
     .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
     button{
@@ -36,234 +34,174 @@
     .pill.ok{color:var(--ok);}
     .pill.warn{color:var(--warn);}
     .pill.danger{color:var(--danger);}
-    .right{text-align:right;}
-    .big{font-size:26px;font-weight:780;margin:6px 0;color:var(--ok);}
-    .kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px;}
-    @media (max-width:520px){.kpi{grid-template-columns:1fr;}}
-    .k{background:#0b1326;border:1px solid var(--line);border-radius:12px;padding:10px;}
-    .k .t{color:var(--muted);font-size:12px;margin-bottom:6px;}
-    .k .v{font-size:18px;font-weight:750;}
     .mini{color:var(--muted);font-size:12px;line-height:1.6;margin-top:8px;}
     .row-actions{display:flex;gap:8px;justify-content:flex-end;}
     .row-actions button{padding:8px 10px;}
     .note{color:var(--muted);font-size:12px;margin-top:10px;}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
-    .two{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
     .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
     .summaryBox{
       background:#0b1326;border:1px solid var(--line);border-radius:12px;
-      padding:10px; line-height:1.6; word-break:break-word;
+      padding:10px; line-height:1.65; word-break:break-word;
     }
-    .summaryBox details{margin-top:6px;}
-    .summaryBox summary{cursor:pointer;color:var(--muted);}
-    .warnText{color:var(--warn);}
     .dangerText{color:var(--danger);}
+    .kv{display:grid;grid-template-columns:120px 1fr;gap:6px;margin-top:8px;}
+    .kv .k{color:var(--muted);}
+    .kv .v b{color:var(--text);}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>處方加給計算機（可自訂上班人次）</h1>
+    <h1>處方加給計算機（自訂上班人次）</h1>
     <div class="sub">
-      每一列代表一個診次（早/午/晚可任意新增）。你可指定：<b>醫師數（單診/雙診）</b>、<b>藥師/助理/工讀上班人次</b>、以及處方張數。<br/>
-      若人次配置不符合補助原則，該診會顯示 <b class="dangerText">不符合規則</b> 並且不計算金額。
+      每一列代表一個診次（早/午/晚可任意新增）。你可指定：<b>醫師數（1=單診、2=雙診）</b>、<b>藥師/助理/工讀上班人次</b>、處方張數。<br/>
+      若人次配置不符合補助原則，或符合你新增的限制（<b>午/晚只有 2 人不符</b>），該診顯示 <b class="dangerText">不符合規則</b> 且不計算。
     </div>
 
-    <div class="grid">
-      <div class="card">
-        <div class="toolbar">
-          <button class="primary" id="addRowBtn">新增一診</button>
-          <button id="add3Btn">一鍵新增：早/午/晚</button>
-          <button id="clearBtn">清空</button>
-          <span class="pill">超額單價：助理 5 / 張、藥師 10 / 張</span>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th style="width:90px;">診次</th>
-              <th style="width:90px;">醫師數</th>
-              <th style="width:220px;">當日上班人次</th>
-              <th style="width:110px;">處方張數</th>
-              <th style="width:520px;">規則摘要（加寬）</th>
-              <th class="right" style="width:160px;">本診合計加給</th>
-              <th style="width:90px;"></th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-
-        <div class="note">
-          <b>補助原則（判斷是否符合規則）</b>
-          <div class="mini">
-            - 單診（醫師 1 位）：必須是 <span class="mono">1 藥師 + 1 助理 + 0 工讀</span><br/>
-            - 雙診（醫師 2 位）：允許三種之一：<br/>
-            &nbsp;&nbsp;A) <span class="mono">1 藥師 + 1 助理 + 0 工讀</span><br/>
-            &nbsp;&nbsp;B) <span class="mono">2 藥師 + 0 助理 + 0 工讀</span><br/>
-            &nbsp;&nbsp;C) <span class="mono">1 藥師 + 1 助理 + 1 工讀</span><br/><br/>
-            <b>金額規則（符合規則才會計算）</b><br/>
-            1) 單診：門檻 40；第 41 張起助理 5/張、藥師 10/張。<br/>
-            2) 雙診 A：助理固定 250、藥師固定 500；門檻 50；第 51 張起助理 5/張、藥師 10/張。<br/>
-            3) 雙診 B：藥師固定 500（以「藥師人次」倍計）；門檻 50；第 51 張起藥師 10/張（以人次倍計）。<br/>
-            4) 雙診 C：助理固定 300、藥師固定 500；門檻 60；第 61 張起助理 5/張、藥師 10/張。工讀未提供加給，預設 0。
-          </div>
-        </div>
+    <div class="card">
+      <div class="toolbar">
+        <button class="primary" id="addRowBtn">新增一診</button>
+        <button id="add3Btn">一鍵新增：早/午/晚</button>
+        <button id="clearBtn">清空</button>
+        <span class="pill">超額單價：助理 5 / 張、藥師 10 / 張</span>
       </div>
 
-      <div class="card">
-        <div class="pill ok">總加給彙總</div>
-        <div class="big" id="grandTotal">$0</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:90px;">診次</th>
+            <th style="width:90px;">醫師數</th>
+            <th style="width:250px;">當日上班人次</th>
+            <th style="width:110px;">處方張數</th>
+            <th>結果（藥師/助理津貼明細）</th>
+            <th style="width:90px;"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
 
-        <div class="kpi">
-          <div class="k">
-            <div class="t">藥師加給合計</div>
-            <div class="v" id="sumPharmacist">$0</div>
-          </div>
-          <div class="k">
-            <div class="t">助理加給合計</div>
-            <div class="v" id="sumAssistant">$0</div>
-          </div>
-          <div class="k">
-            <div class="t">工讀加給合計</div>
-            <div class="v" id="sumPartTime">$0</div>
-          </div>
-          <div class="k">
-            <div class="t">診次數</div>
-            <div class="v" id="sumSessions">0</div>
-          </div>
-        </div>
-
-        <div class="mini" style="margin-top:12px;">
-          <b>計算方式</b><br/>
-          - 超額張數：<span class="mono">max(0, 處方張數 - 門檻)</span><br/>
-          - 超額加給：助理 <span class="mono">超額×5×助理人次</span>；藥師 <span class="mono">超額×10×藥師人次</span><br/>
-          - 固定津貼：依符合的規則直接加上（若有多人次則依規則說明倍計）
+      <div class="note">
+        <b>補助原則（原始規則）</b>
+        <div class="mini">
+          - 單診（醫師 1 位）：必須 <span class="mono">1 藥師 + 1 助理 + 0 工讀</span><br/>
+          - 雙診（醫師 2 位）：允許三種之一：<br/>
+          &nbsp;&nbsp;A) <span class="mono">1 藥師 + 1 助理 + 0 工讀</span><br/>
+          &nbsp;&nbsp;B) <span class="mono">2 藥師 + 0 助理 + 0 工讀</span><br/>
+          &nbsp;&nbsp;C) <span class="mono">1 藥師 + 1 助理 + 1 工讀</span><br/><br/>
+          <b>你的新增限制</b><br/>
+          - 若 <b>午診</b> 或 <b>晚診</b> 且上班總人數 <span class="mono">(藥師+助理+工讀)=2</span>，視為 <b class="dangerText">不符合規則</b>（不計算）。
         </div>
       </div>
     </div>
   </div>
 
 <script>
-  function money(n){
+  function moneyPlain(n){
     const v = Math.round((Number(n) || 0));
-    return v.toLocaleString("zh-Hant-TW", { style:"currency", currency:"TWD", maximumFractionDigits:0 });
+    return v.toLocaleString("zh-Hant-TW");
   }
 
-  // 規則解析：由「醫師數」與「人次」決定是否符合、門檻與津貼
   function getRuleByStaff(doctors, p, a, t){
     // 回傳：
-    // { valid, key, threshold, stipendA, stipendPEach, label, allowText }
-    const allowText =
-      "允許配置：單診=1藥師+1助理；雙診= (1藥師+1助理) 或 (2藥師) 或 (1藥師+1助理+1工讀)";
+    // { valid, threshold, stipendA, stipendPEach, label }
+    const base = { valid:false, threshold:0, stipendA:0, stipendPEach:0, label:"" };
 
-    const base = {
-      valid:false, key:"INVALID",
-      threshold:0,
-      stipendA:0,
-      stipendPEach:0, // 每位藥師
-      label:"",
-      allowText
-    };
-
-    // 單診：必須 1P1A0T
     if (doctors === 1){
       if (p === 1 && a === 1 && t === 0){
         return {
           valid:true,
-          key:"SINGLE_1P1A",
           threshold:40,
           stipendA:0,
           stipendPEach:0,
-          label:"單診(醫師1)：配置=1藥師+1助理；門檻40；第41張起 助理5/張、藥師10/張",
-          allowText
+          label:"單診：門檻40；第41張起 助理5/張、藥師10/張；無固定津貼"
         };
       }
-      return {
-        ...base,
-        label:"單診(醫師1) 必須是 1藥師+1助理（工讀=0）。"
-      };
+      return { ...base, label:"單診必須是 1 藥師 + 1 助理（工讀=0）。" };
     }
 
-    // 雙診：允許三種
     if (doctors === 2){
       // A) 1P1A0T
       if (p === 1 && a === 1 && t === 0){
         return {
           valid:true,
-          key:"DOUBLE_A_1P1A",
           threshold:50,
           stipendA:250,
           stipendPEach:500,
-          label:"雙診A(醫師2)：配置=1藥師+1助理；助理固定250、藥師固定500；門檻50；第51張起 助理5/張、藥師10/張",
-          allowText
+          label:"雙診A：助理固定250、藥師固定500；門檻50；第51張起 助理5/張、藥師10/張"
         };
       }
       // B) 2P0A0T
       if (p === 2 && a === 0 && t === 0){
         return {
           valid:true,
-          key:"DOUBLE_B_2P",
           threshold:50,
           stipendA:0,
           stipendPEach:500, // 以藥師人次倍計
-          label:"雙診B(醫師2)：配置=2藥師；每位藥師固定500；門檻50；第51張起 藥師10/張（以人次倍計）",
-          allowText
+          label:"雙診B：2藥師；每位藥師固定500；門檻50；第51張起 藥師10/張（以人次倍計）"
         };
       }
       // C) 1P1A1T
       if (p === 1 && a === 1 && t === 1){
         return {
           valid:true,
-          key:"DOUBLE_C_1P1A1T",
           threshold:60,
           stipendA:300,
           stipendPEach:500,
-          label:"雙診C(醫師2)：配置=1藥師+1助理+1工讀；助理固定300、藥師固定500；門檻60；第61張起 助理5/張、藥師10/張；工讀0",
-          allowText
+          label:"雙診C：助理固定300、藥師固定500；門檻60；第61張起 助理5/張、藥師10/張（工讀=0）"
         };
       }
 
-      return {
-        ...base,
-        label:"雙診(醫師2) 配置不符合三種補助原則（1P1A / 2P / 1P1A1T）。"
-      };
+      return { ...base, label:"雙診配置不符合三種補助原則（1P1A / 2P / 1P1A1T）。" };
     }
 
-    // 其他（理論上不會有）
-    return {
-      ...base,
-      label:"醫師數請選 1 或 2。"
-    };
+    return { ...base, label:"醫師數請選 1 或 2。" };
   }
 
   function computeRow(tr){
+    const shift = tr.querySelector(".shift").value; // 早/午/晚
     const doctors = Number(tr.querySelector(".doctors").value);
     const p = Number(tr.querySelector(".pCount").value || 0);
     const a = Number(tr.querySelector(".aCount").value || 0);
     const t = Number(tr.querySelector(".tCount").value || 0);
     const rx = Number(tr.querySelector(".rx").value || 0);
 
-    const rule = getRuleByStaff(doctors, p, a, t);
+    // 你的新增限制：午/晚且總人數=2 -> 不符合
+    const headcount = p + a + t;
+    if ((shift === "午" || shift === "晚") && headcount === 2){
+      return {
+        valid:false,
+        reason:"午診/晚診上班人數只有 2 人，依規則視為不符合。",
+        rx, over:0,
+        pSession:0, pRx:0, aSession:0, aRx:0
+      };
+    }
 
+    const rule = getRuleByStaff(doctors, p, a, t);
     if (!rule.valid){
       return {
-        rule, rx, over:0,
-        pharmacist:0, assistant:0, partTime:0,
-        total:0
+        valid:false,
+        reason:rule.label,
+        rx, over:0,
+        pSession:0, pRx:0, aSession:0, aRx:0
       };
     }
 
     const over = Math.max(0, rx - rule.threshold);
 
-    // 固定津貼：助理以助理人次倍計（符合規則時助理人次本來就固定為1或0）
-    const assistant = (rule.stipendA * a) + (over * 5 * a);
+    // 分拆顯示：每節津貼 vs 處方津貼（工讀固定0且不顯示）
+    const aSession = rule.stipendA * a;
+    const aRx = over * 5 * a;
 
-    // 藥師固定津貼：以藥師人次倍計（2藥師時=2倍）
-    const pharmacist = (rule.stipendPEach * p) + (over * 10 * p);
+    const pSession = rule.stipendPEach * p;
+    const pRx = over * 10 * p;
 
-    const partTime = 0; // 未提供工讀加給規則，預設 0
-    const total = assistant + pharmacist + partTime;
-
-    return { rule, rx, over, pharmacist, assistant, partTime, total };
+    return {
+      valid:true,
+      ruleLabel:rule.label,
+      threshold:rule.threshold,
+      rx, over,
+      pSession, pRx, aSession, aRx
+    };
   }
 
   // ----- UI -----
@@ -271,12 +209,6 @@
   const addRowBtn = document.getElementById("addRowBtn");
   const add3Btn = document.getElementById("add3Btn");
   const clearBtn = document.getElementById("clearBtn");
-
-  const sumPharmacist = document.getElementById("sumPharmacist");
-  const sumAssistant = document.getElementById("sumAssistant");
-  const sumPartTime = document.getElementById("sumPartTime");
-  const grandTotal = document.getElementById("grandTotal");
-  const sumSessions = document.getElementById("sumSessions");
 
   function makeRow(defaultShift="早"){
     const tr = document.createElement("tr");
@@ -312,7 +244,7 @@
           </div>
         </div>
         <div class="mini" style="margin-top:6px;">
-          提示：改人次後若不符合補助原則，會顯示「不符合規則」。
+          午/晚若總人數=2，會直接判定不符合。
         </div>
       </td>
 
@@ -320,9 +252,7 @@
         <input class="rx" type="number" min="0" step="1" placeholder="輸入張數" />
       </td>
 
-      <td class="summary"></td>
-
-      <td class="right total"></td>
+      <td class="result"></td>
 
       <td>
         <div class="row-actions">
@@ -331,121 +261,90 @@
       </td>
     `;
 
+    const shiftSel = tr.querySelector(".shift");
     const doctorsSel = tr.querySelector(".doctors");
     const pInput = tr.querySelector(".pCount");
     const aInput = tr.querySelector(".aCount");
     const tInput = tr.querySelector(".tCount");
+    const rxInput = tr.querySelector(".rx");
 
-    // 依醫師數給一個「合理預設配置」
     function applyDefaultStaff(){
       const d = Number(doctorsSel.value);
       if (d === 1){
         pInput.value = 1; aInput.value = 1; tInput.value = 0;
       } else {
-        // 預設用雙診A 1P1A
+        // 預設用雙診A：1P1A
         pInput.value = 1; aInput.value = 1; tInput.value = 0;
       }
     }
 
     function render(){
       const c = computeRow(tr);
-      const summary = tr.querySelector(".summary");
-      const totalCell = tr.querySelector(".total");
+      const cell = tr.querySelector(".result");
 
-      if (!c.rule.valid){
-        summary.innerHTML = `
+      if (!c.valid){
+        cell.innerHTML = `
           <div class="summaryBox">
             <div class="pill danger">不符合規則</div>
-            <div class="mini" style="margin-top:8px;">
-              ${c.rule.label}<br/>
-              <span class="warnText">可用配置：</span>${c.rule.allowText}
-            </div>
+            <div class="mini" style="margin-top:8px;">${c.reason}</div>
           </div>
         `;
-        totalCell.innerHTML = `<b>${money(0)}</b>`;
-        renderTotals();
         return;
       }
 
       const pillClass = (c.over > 0) ? "pill warn" : "pill ok";
-      summary.innerHTML = `
+      cell.innerHTML = `
         <div class="summaryBox">
-          <div class="${pillClass}">
-            門檻：${c.rule.threshold} 張｜超額：${c.over} 張
+          <div class="${pillClass}">門檻：${c.threshold} 張｜超額：${c.over} 張</div>
+
+          <div class="kv">
+            <div class="k">藥師</div>
+            <div class="v">每節津貼 <b>${moneyPlain(c.pSession)}</b> 元；處方津貼 <b>${moneyPlain(c.pRx)}</b> 元</div>
+
+            <div class="k">助理</div>
+            <div class="v">每節津貼 <b>${moneyPlain(c.aSession)}</b> 元；處方津貼 <b>${moneyPlain(c.aRx)}</b> 元</div>
           </div>
 
-          <details>
-            <summary>查看規則與分項明細</summary>
-            <div class="mini" style="margin-top:8px;">
-              ${c.rule.label}<br/>
-              本診分項：藥師 ${money(c.pharmacist)}、助理 ${money(c.assistant)}、工讀 ${money(c.partTime)}<br/>
-              計算：超額 = max(0, ${c.rx} - ${c.rule.threshold}) = ${c.over}
-            </div>
-          </details>
+          <div class="mini" style="margin-top:10px;">
+            規則：${c.ruleLabel}
+          </div>
         </div>
       `;
-      totalCell.innerHTML = `<b>${money(c.total)}</b>`;
-      renderTotals();
     }
 
-    tr.querySelector(".rx").addEventListener("input", render);
-    doctorsSel.addEventListener("change", ()=>{
-      applyDefaultStaff();
-      render();
-    });
+    // events
+    shiftSel.addEventListener("change", render);
+    doctorsSel.addEventListener("change", ()=>{ applyDefaultStaff(); render(); });
     pInput.addEventListener("input", render);
     aInput.addEventListener("input", render);
     tInput.addEventListener("input", render);
+    rxInput.addEventListener("input", render);
 
     tr.querySelector(".delBtn").addEventListener("click", ()=>{
       tr.remove();
-      renderTotals();
     });
 
-    // 初始 render
     applyDefaultStaff();
     render();
     return tr;
   }
 
-  function renderTotals(){
-    let sP=0, sA=0, sT=0, sAll=0;
-    const rows = Array.from(tbody.querySelectorAll("tr"));
-    rows.forEach(r=>{
-      const c = computeRow(r);
-      // 只有符合規則的列才會有金額（不符合的已是 0）
-      sP += c.pharmacist;
-      sA += c.assistant;
-      sT += c.partTime;
-      sAll += c.total;
-    });
-    sumPharmacist.textContent = money(sP);
-    sumAssistant.textContent = money(sA);
-    sumPartTime.textContent = money(sT);
-    grandTotal.textContent = money(sAll);
-    sumSessions.textContent = String(rows.length);
-  }
-
   addRowBtn.addEventListener("click", ()=>{
     tbody.appendChild(makeRow("早"));
-    renderTotals();
   });
 
   add3Btn.addEventListener("click", ()=>{
     tbody.appendChild(makeRow("早"));
     tbody.appendChild(makeRow("午"));
     tbody.appendChild(makeRow("晚"));
-    renderTotals();
   });
 
   clearBtn.addEventListener("click", ()=>{
     tbody.innerHTML = "";
-    renderTotals();
   });
 
   // 初始：先給一列
   tbody.appendChild(makeRow("早"));
-  renderTotals();
 </script>
 </body>
 </html>
